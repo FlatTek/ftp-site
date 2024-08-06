@@ -1,0 +1,102 @@
+name: "FTP all files to the site"
+description: "FTP all files to the site"
+inputs:
+  ftp_source_dir:
+    description: "Directory to mirror from the workspace."
+    required: true
+  ftp_site:
+    description: "Site to FTP into."
+    required: true
+  ftp_target_dir:
+    description: "Directory to FTP into."
+    required: true
+  ftp_user:
+    description: "FTP user."
+    required: true
+  ftp_pwd:
+    description: "FTP password."
+    required: true
+
+outputs:
+  completion_time:
+    description: "Reports the date and time the script completed"
+    value: ${{ steps.sparse_clone.outputs.completion_time }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: FTP the site
+      id: ftp_site
+      shell: bash
+
+      env:
+        FTP_SOURCE_DIR: ${{ inputs.ftp_source_dir }}
+        FTP_SITE: ${{ inputs.ftp_site }}
+        FTP_TARGET_DIR: ${{ inputs.ftp_target_dir }}
+        FTP_USER: ${{ inputs.ftp_user }}
+        FTP_PWD: ${{ inputs.ftp_pwd }}
+
+      run: |
+        # FTP files from the workspace to the site
+
+        echo "######################################################################"
+       
+        WORKSPACE=${{ github.workspace }}
+        TEMP_DIR=$WORKSPACE/temp
+        mkdir -p $TEMP_DIR
+        
+        echo "######################################################################"
+        # Echo variables for debugging
+        echo "FTP_SOURCE_DIR = $FTP_SOURCE_DIR"
+        echo "FTP_SITE = $FTP_SITE"
+        echo "FTP_TARGET_DIR = $FTP_TARGET_DIR"
+        echo "FTP_USER = $FTP_USER"
+        echo "FTP_PWD = ***"
+        echo "WORKSPACE = $WORKSPACE"
+
+        echo "######################################################################"
+        echo "-- SETUP"
+        echo "-- What are we sending to the FTP site?"
+        cd $FTP_SOURCE_DIR
+        pwd
+        tree $FTP_SOURCE_DIR
+        
+        echo "######################################################################"
+        # Install lftp
+        echo "----- Install LFTP -----"
+        sudo apt-get install lftp -y
+
+        echo "######################################################################"
+        # build the command files
+        echo "----- Build the command files -----"
+        echo "debug -t 4" > $TEMP_DIR/lftp-commands.txt
+        echo "open $FTP_SITE" >> $TEMP_DIR/lftp-commands.txt
+        echo "user $FTP_USER $FTP_PWD" >> $TEMP_DIR/lftp-commands.txt
+        echo "mirror -R -p --verbose $FTP_SOURCE_DIR $FTP_TARGET_DIR" >> $TEMP_DIR/lftp-commands.txt
+        echo "bye" >> $TEMP_DIR/lftp-commands.txt
+        cat $TEMP_DIR/lftp-commands.txt
+
+        # Run the command file
+        echo "----- Run the command file -----"
+        lftp -f $TEMP_DIR/lftp-commands.txt
+
+        # echo "######################################################################"
+        # # FTP the site to Azure
+        # echo "----- FTP the site to Azure -----"
+        # lftp <<EOF
+        # debug -t 4
+        # open $FTP_SITE
+        # user $FTP_USER $FTP_PWD
+        # mirror -R -p --verbose $FTP_SOURCE_DIR $FTP_TARGET_DIR
+        # bye
+        # EOF
+
+        # Done
+        echo "----- Website FPT completed -----"
+
+        echo "completion_time=$(date)" >> $GITHUB_OUTPUT
+
+
+
+        
+        
